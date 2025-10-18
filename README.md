@@ -2,7 +2,7 @@
 Eluvio App challenge (open for feedback from community :) )
 # Eluvio Applications Coding Challenge – Batch Item Fetcher
 
-## 📘 Overview
+## Overview
 
 This repository contains my submission for **Option 3 – Applications** in the Eluvio Software Engineer (New Grad) Challenge.
 
@@ -10,7 +10,7 @@ The goal is to implement a **client utility** that retrieves information for man
 
 ---
 
-## 🧩 Problem Description
+## Problem Description
 
 The API only supports **one ID per request** and allows a maximum of **five simultaneous requests**.  
 Any additional requests trigger a **HTTP 429 (Too Many Requests)** error, causing a temporary 30 second rejection period.
@@ -24,7 +24,7 @@ Write a program that:
 
 ---
 
-## ⚙️ How It Works
+## How It Works
 
 ### Core Design
 
@@ -47,7 +47,7 @@ Write a program that:
 
 ---
 
-## 🚀 Running the Program
+## Running the Program
 
 ### Prerequisites
 - [Go 1.21+](https://go.dev/dl/)
@@ -86,12 +86,12 @@ go run main.go -client_id=test
 ```
 
 After completion:
-- ✅ `cache.json` keeps all previously fetched items.
-- ✅ `results.json` lists ordered responses for all IDs.
+- `cache.json` keeps all previously fetched items.
+- `results.json` lists ordered responses for all IDs.
 
 ---
 
-## 🧠 Notes on Design Choices
+## Notes on Design Choices
 
 - Uses `context.WithTimeout` per request to prevent stuck connections.  
 - Enforces `max_concurrency ≤ 5` for safety against 429s.  
@@ -100,7 +100,7 @@ After completion:
 
 ---
 
-## 🧑‍💻 Author
+## Author
 
 **Truc Tran**  
 B.A. Computer Science @ UC Berkeley  
