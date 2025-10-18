@@ -116,6 +116,29 @@ go run main.go -client_id=test
 
 ---
 
+## Challenges & Iterations
+
+During development, I explored several different designs and debugging iterations before arriving at the final queue-based worker model.
+
+### 1. Channel Closing and Concurrency Bugs
+Initially, I closed the job queue too early while retries were still being requeued, which caused the program to panic with `send on closed channel`.  
+I resolved this by switching to an **atomic counter–based approach** and ensuring the results channel is closed only **after all workers finish**.
+
+### 2. Handling Context Timeouts
+Some requests failed with `context deadline exceeded` even though other IDs were completing successfully.  
+This happened when multiple requests slowed down due to network latency.  
+I added **per-request timeouts** (via `context.WithTimeout`) and **retry logic** for these transient errors to make the client more resilient.
+
+### 3. Go Concurrency Patterns
+I initially tested using a `WaitGroup` plus `semaphore` pattern but found a **bounded worker pool with a channel queue** to be clearer and faster in practice.  
+The final implementation maintains at most 5 simultaneous requests and dynamically requeues failed tasks with a randomized delay to prevent collision.
+
+### 4. Performance Testing
+Total runtime varied between ~4s to ~50s depending on API latency.  
+I confirmed that the program never exceeded 5 simultaneous requests and that cached runs completed almost instantly.
+
+---
+
 ## Future Improvements
 
 - Dynamic backoff tuned by response headers.
