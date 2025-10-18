@@ -1,49 +1,44 @@
-# eluvio_app_challenge
-Eluvio App challenge (open for feedback from community :) )
-# Eluvio Applications Coding Challenge – Batch Item Fetcher
+# Eluvio Software Engineer Challenge Fall 2025 – Option 3: Applications
 
-## Overview
+### Problem Overview
 
-This repository contains my submission for **Option 3 – Applications** in the Eluvio Software Engineer (New Grad) Challenge.
+Imagine you have a program that needs to look up information about items using their item ID, often in large batches.
 
-The goal is to implement a **client utility** that retrieves information for many item IDs as quickly as possible from a single-item API, while **respecting concurrency limits** and **avoiding unnecessary repeated queries**.
+Unfortunately, the only API available for returning this data takes **one item at a time**, and is limited to **5 simultaneous requests**.  
+Any additional requests beyond that limit are rejected for 30 seconds with **HTTP 429**.
 
----
-
-## Problem Description
-
-The API only supports **one ID per request** and allows a maximum of **five simultaneous requests**.  
-Any additional requests trigger a **HTTP 429 (Too Many Requests)** error, causing a temporary 30 second rejection period.
-
-**Task:**  
-Write a program that:
-1. Fetches item data efficiently for a large list of IDs.  
-2. Avoids triggering rate limits (≤ 5 concurrent requests).  
-3. Caches successful results locally to skip re-fetching already seen IDs.  
-4. Retries transient failures (timeouts, 429s, and 5xx codes) with small backoff delays.
+**Goal:**  
+Write a client utility that retrieves information for all given item IDs **as quickly as possible** without:
+- Exceeding the concurrency limit,
+- Triggering rate-limit lockouts,
+- Or re-fetching already-seen items (via caching).
 
 ---
 
-## How It Works
+## Approach / Strategy
 
-### Core Design
+This solution is implemented in **Go (Golang)** for its efficient concurrency primitives and simple HTTP client handling.
 
-- **Worker Pool with Job Queue**  
-  Up to 5 workers run in parallel, each reading from a shared queue of item IDs to process.
+Key design ideas:
+1. **Worker Pool with Bounded Concurrency**  
+   - Uses a queue (`chan string`) and a pool of ≤ 5 workers.  
+   - Guarantees no more than 5 requests are active at once.
 
-- **Atomic “Pending” Counter & Watcher**  
-  The program tracks how many jobs are in flight (including retries).  
-  When all jobs finish, it automatically closes the queue and exits cleanly.
+2. **Exponential Backoff Retries**  
+   - Automatically retries transient errors (`429`, `5xx`, or timeouts).  
+   - Wait time includes a small randomized delay to avoid synchronized retry bursts.
 
-- **Retry with Backoff**  
-  Each failed request (timeout, 429, or 5xx) is retried after a random 2–3 s delay.
+3. **Persistent Cache**  
+   - Each item ID result is cached to `cache.json` to avoid redundant queries in future runs.
 
-- **Persistent Cache**  
-  Results are saved to `cache.json`, allowing later runs to skip already-successful IDs.  
-  The full ordered results list is written to `results.json`.
+4. **Timeouts and Contexts**  
+   - Each HTTP call runs under a `context.WithTimeout` (default 15 s) to prevent hanging goroutines.
 
-- **Progress + Autosave**  
-  Live progress is printed every 10 items, and cache autosaves run every 10 seconds.
+5. **Graceful Shutdown**  
+   - Tracks active workers atomically; closes result channels cleanly when all work is done.
+
+6. **Progress Feedback**  
+   - Prints per-request logs and progress counters for transparency.
 
 ---
 
@@ -56,9 +51,14 @@ Write a program that:
 ### Example Command
 
 ```bash
+# In terminal, run:
 go run main.go -client_id=test
 ```
-
+```bash
+# And add those output files to your `.gitignore`:
+cache.json
+results.json
+```
 ### Optional Flags
 
 | Flag | Description | Default |
@@ -71,6 +71,7 @@ go run main.go -client_id=test
 | `-max_concurrency` | Maximum concurrent requests (≤ 5) | `5` |
 | `-max_retries` | Number of retry attempts per ID | `2` |
 | `-http_timeout` | Per-request timeout | `15s` |
+
 
 ### Example Output
 
@@ -90,6 +91,21 @@ After completion:
 - `results.json` lists ordered responses for all IDs.
 
 ---
+## How to Run
+```bash
+# Clone the repo
+git clone git@github.com:<your_username>/eluvio_app_challenge.git
+cd eluvio_app_challenge
+
+# (Optional) Initialize Go module if needed
+go mod init eluvio_app_challenge
+go mod tidy
+
+# Run the program
+go run main.go -client_id=test
+```
+
+---
 
 ## Notes on Design Choices
 
@@ -97,6 +113,14 @@ After completion:
 - Enforces `max_concurrency ≤ 5` for safety against 429s.  
 - Retries transient errors with randomized delay to avoid synchronized retry spikes.  
 - Clean shutdown using an atomic pending counter — no panic, no hang.
+
+---
+
+## Future Improvements
+
+- Dynamic backoff tuned by response headers.
+- CLI flag for custom retry delay profile.
+- Metrics summary (average latency, retry count).
 
 ---
 
